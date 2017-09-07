@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Net.Http;
 using System.Windows.Input;
+using ForeingExchange.Helpers;
 using ForeingExchange.Models;
 using GalaSoft.MvvmLight.Command;
 using Newtonsoft.Json;
@@ -12,13 +13,16 @@ using Xamarin.Forms;
 namespace ForeingExchange.ViewModels
 {
 
-    public class MainViewModel: INotifyPropertyChanged
+    public class MainViewModel : INotifyPropertyChanged
     {
         #region Attributes
         bool _isRunning;
         string _result;
         bool _isEnabled;
         ObservableCollection<Rate> _rates;
+        Rate _sourceRate;
+        Rate _targetRate;
+        string _status;
         #endregion
 
         #region
@@ -26,6 +30,23 @@ namespace ForeingExchange.ViewModels
         {
             get;
             set;
+        }
+
+        public string Status
+        {
+            get
+            {
+              return _status;  
+            }
+             
+            set
+            {
+                if (_status != value)
+                {
+                    _status = value;
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Status)));
+                }
+            }
         }
 
         public ObservableCollection<Rate> Rates
@@ -39,21 +60,41 @@ namespace ForeingExchange.ViewModels
                 if (_rates != value)
                 {
                     _rates = value;
-                    PropertyChanged?.Invoke(this,new PropertyChangedEventArgs(nameof(Rates)));
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Rates)));
                 }
             }
         }
 
         public Rate SourceRate
         {
-            get;
-            set;
+            get
+            {
+                return _sourceRate;
+            }
+            set
+            {
+                if (_sourceRate != value)
+                {
+                    _sourceRate = value;
+                    PropertyChanged?.Invoke(this,new PropertyChangedEventArgs(nameof(SourceRate)));
+                }
+            }
         }
 
         public Rate TargetRate
         {
-            get;
-            set;
+            get
+            {
+                return _targetRate;
+            }
+            set
+            {
+                if (_targetRate != value)
+                {
+                    _targetRate = value;
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(TargetRate)));
+                }
+            }
         }
 
         public bool IsRunning
@@ -64,7 +105,7 @@ namespace ForeingExchange.ViewModels
             }
             set
             {
-                if (_isRunning !=value)
+                if (_isRunning != value)
                 {
                     _isRunning = value;
                     PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsRunning)));
@@ -83,7 +124,7 @@ namespace ForeingExchange.ViewModels
                 if (_isEnabled != value)
                 {
                     _isEnabled = value;
-                    PropertyChanged?.Invoke(this,new PropertyChangedEventArgs(nameof(IsEnabled)));
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsEnabled)));
                 }
             }
         }
@@ -92,7 +133,7 @@ namespace ForeingExchange.ViewModels
         {
             get
             {
-                return _result;  
+                return _result;
             }
             set
             {
@@ -106,6 +147,23 @@ namespace ForeingExchange.ViewModels
         #endregion
 
         #region Commands
+
+        public ICommand SwitchCommand
+        {
+            get
+            {
+              return new RelayCommand(Switch);   
+            }
+        }
+
+        void Switch()
+        {
+            var aux = SourceRate;
+            SourceRate = TargetRate;
+            TargetRate = aux;
+            Conver();
+        }
+
         public ICommand ConvertCommand
         {
             get
@@ -122,9 +180,9 @@ namespace ForeingExchange.ViewModels
             if (string.IsNullOrEmpty((Amount)))
             {
                 await Application.Current.MainPage.DisplayAlert(
-                    "Error",
-                    "Debe seleccionar una taza para convertir idiota!!",
-                    "Aceptar");
+                    Lenguages.Error,
+                    Lenguages.AmountValidation,
+                    Lenguages.Accept);
                 return;
             }
 
@@ -132,25 +190,28 @@ namespace ForeingExchange.ViewModels
             if (!decimal.TryParse(Amount, out amount))
             {
                 await Application.Current.MainPage.DisplayAlert(
-                    "Error",
-                    "Debe ingresar un valor numerico",
-                    "Aceptar");
+                    Lenguages.Error,
+                    Lenguages.AmountNumericValidation,
+                    Lenguages.Accept);
+                return;
             }
 
             if (SourceRate == null)
 			{
 				await Application.Current.MainPage.DisplayAlert(
-					"Error",
-					"Debe ingresar una taza a convertir origen",
-					"Aceptar");
+					Lenguages.Error,
+                    Lenguages.SourceRateValidation,
+					Lenguages.Accept);
+                return;
 			}
 
             if (TargetRate == null)
 			{
 				await Application.Current.MainPage.DisplayAlert(
-					"Error",
-					"Debe ingresar una taza a convertir destino",
-					"Aceptar");
+					Lenguages.Error,
+                    Lenguages.TargetRateValidation,
+					Lenguages.Accept);
+                return;
 			}
 
             var amountConverter = amount / (decimal)SourceRate.TaxRate * (decimal)TargetRate.TaxRate;
@@ -175,7 +236,7 @@ namespace ForeingExchange.ViewModels
         async void LoadRates()
 		{
             IsRunning = true;
-            Result = "Cargando tazas de cambio...";
+            Result = Lenguages.Loading;
             try
             {
                 var client = new HttpClient();
@@ -193,7 +254,7 @@ namespace ForeingExchange.ViewModels
                 Rates = new ObservableCollection<Rate>(rates);
                 IsRunning = false;
                 IsEnabled = true; 
-                Result = "Listo para convertir";
+                Result = Lenguages.Ready;
             }
             catch (Exception ex)
             {
