@@ -25,7 +25,11 @@ namespace ForeingExchange.ViewModels
         string _status;
         #endregion
 
-        #region
+        #region Services
+        ApiService apiService;
+        #endregion
+
+        #region Propiedades
         public string Amount
         {
             get;
@@ -226,6 +230,7 @@ namespace ForeingExchange.ViewModels
 		#region Constructors
 		public MainViewModel()
         {
+            apiService = new ApiService();
             LoadRates();
         }
 
@@ -237,30 +242,25 @@ namespace ForeingExchange.ViewModels
 		{
             IsRunning = true;
             Result = Lenguages.Loading;
-            try
-            {
-                var client = new HttpClient();
-                client.BaseAddress = new Uri("http://apiexchangerates.azurewebsites.net");
-                var controller = "/api/Rates";
-                var response = await client.GetAsync(controller);
-                var result = await response.Content.ReadAsStringAsync();
-                if (!response.IsSuccessStatusCode)
-                {
-                    IsRunning = false;
-                    Result = result;
-                }
-
-                var rates = JsonConvert.DeserializeObject<List<Rate>>(result);
-                Rates = new ObservableCollection<Rate>(rates);
-                IsRunning = false;
-                IsEnabled = true; 
-                Result = Lenguages.Ready;
-            }
-            catch (Exception ex)
+            var connection = await apiService.CheckConnection();
+            if (!connection.IsSuccess)
             {
                 IsRunning = false;
-                Result = ex.Message;
+                Result = connection.Message;
+                return;
             }
+            var response = await apiService.GetList<Rate>("http://apiexchangerates.azurewebsites.net", "api/Rates");
+            if (!response.IsSuccess)
+            {
+                IsRunning = false;
+                Result = response.Message;
+                return;
+            }
+            Rates = new ObservableCollection<Rate>((List<Rate>)response.Result);
+            IsRunning = false;
+            IsEnabled = true;
+            Result = Lenguages.Ready;
+            Status = "Rates loade from internet.";
         }
         #endregion
     }
